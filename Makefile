@@ -1,18 +1,25 @@
-PYTHON := python3
+## Nurikabe Solver — Svelte + TypeScript
+## Requirements: Node.js (https://nodejs.org)
 
-.PHONY: all run test clean
+.PHONY: all run build test clean
 
 all: run
 
-## Run the web app (starts server, opens browser)
+## Install deps (once) and start dev server with hotspot access
 run:
-	$(PYTHON) main.py
+	npm install
+	npm run dev
 
-## Quick solver test on all sample puzzles
+## Build static dist/ for distribution (no server needed)
+build:
+	npm install
+	npm run build
+
+## Python solver tests (unchanged)
 test:
 	@echo "=== Solver tests ==="
-	@$(PYTHON) test_solver.py
+	@python3 test_solver.py
 
-## Clean up
+## Clean build artifacts
 clean:
-	rm -rf __pycache__ *.pyc
+	rm -rf node_modules dist

@@ -1,0 +1,17 @@
+{
+  "name": "nurikabe",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev":     "vite --host",
+    "build":   "vite build",
+    "preview": "vite preview --host"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "svelte":                       "^5.0.0",
+    "typescript":                   "^5.0.0",
+    "vite":                         "^5.0.0"
+  }
+}
