@@ -11,10 +11,6 @@ export class Solver {
 
   constructor(grid: Grid) { this.grid = grid; }
 
-  // ---------------------------------------------------------------------------
-  // Public API
-  // ---------------------------------------------------------------------------
-
   solve(stepCallback?: StepCb, timeout = 30): [boolean, number] {
     this.timeout = timeout;
     this.start   = performance.now() / 1000;
@@ -53,10 +49,6 @@ export class Solver {
     return null;
   }
 
-  // ---------------------------------------------------------------------------
-  // Island sync
-  // ---------------------------------------------------------------------------
-
   private _initIslandCells(): void {
     for (const isl of this.grid.islands) isl.cells = new Set();
     const n = this.grid.rows * this.grid.cols;
@@ -70,10 +62,6 @@ export class Solver {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Backtracking
-  // ---------------------------------------------------------------------------
-
   private _backtrack(): boolean {
     if (performance.now() / 1000 - this.start > this.timeout) return false;
     this._propagate();
@@ -83,8 +71,8 @@ export class Solver {
     const cell = this._selectCell();
     if (!cell) return this.grid.isComplete();
 
-    const [r, c]  = cell;
-    const snap    = this.grid.copy();
+    const [r, c] = cell;
+    const snap   = this.grid.copy();
 
     const adj = new Set<number>();
     for (const [nr, nc] of this.grid.neighbors(r, c)) {
@@ -99,11 +87,6 @@ export class Solver {
       if (isl.cells.size < isl.size) candidates.push([WHITE, iid]);
     }
     candidates.push([BLACK, -1]);
-    if (candidates[0][0] !== WHITE && adj.size === 1) {
-      const iid = [...adj][0];
-      const isl = this.grid.islands[iid];
-      if (isl.cells.size < isl.size) candidates.push([WHITE, iid]);
-    }
 
     for (const [value, iid] of candidates) {
       this._doAssign(r, c, value, iid);
@@ -155,17 +138,13 @@ export class Solver {
     if (this.stepCb) this.stepCb(this.grid.copy(), 'Backtrack guess');
   }
 
-  // ---------------------------------------------------------------------------
-  // Propagation
-  // ---------------------------------------------------------------------------
-
   private _propagate(): void {
     for (let i = 0; i < 300; i++) {
-      const c = this._ruleCompletion()    ||
-                this._ruleIsolation()     ||
-                this._ruleNo2x2()         ||
-                this._ruleForcedExpansion();
-      if (!c) break;
+      let changed = this._ruleCompletion();
+      changed = this._ruleIsolation()       || changed;
+      changed = this._ruleNo2x2()           || changed;
+      changed = this._ruleForcedExpansion() || changed;
+      if (!changed) break;
     }
   }
 
@@ -265,10 +244,6 @@ export class Solver {
     return changed;
   }
 
-  // ---------------------------------------------------------------------------
-  // Contradiction
-  // ---------------------------------------------------------------------------
-
   private _contradiction(): boolean {
     const { rows, cols } = this.grid;
     for (const isl of this.grid.islands) {
@@ -298,10 +273,6 @@ export class Solver {
       }
     return false;
   }
-
-  // ---------------------------------------------------------------------------
-  // Reachability helpers
-  // ---------------------------------------------------------------------------
 
   private _computeReachability(): Map<string, number[]> {
     const result = new Map<string, number[]>();
