@@ -1,0 +1,390 @@
+:root {
+  --bg:           #0a0e1a;
+  --surface:      #111827;
+  --surface2:     #1c2535;
+  --surface3:     #243044;
+  --border:       #2d3f57;
+  --text:         #e8edf5;
+  --text-muted:   #7a8fa8;
+  --accent:       #4f8ef7;
+  --accent-dim:   #2a5aad;
+  --success:      #34d399;
+  --warning:      #fbbf24;
+  --danger:       #f87171;
+  --transition:   180ms ease;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Toolbar ── */
+#toolbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+#toolbar h1 {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--text);
+  margin-right: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#toolbar h1::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.toolbar-btn {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 5px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: .85rem;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.toolbar-btn:hover {
+  background: var(--surface3);
+  border-color: var(--accent);
+}
+
+/* ── Main layout ── */
+#main { display: flex; flex: 1; min-height: 0; }
+
+/* ── Canvas area ── */
+#canvas-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  overflow: hidden;
+  padding: 20px;
+}
+
+canvas {
+  display: block;
+  cursor: crosshair;
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px var(--border), 0 16px 48px rgba(0,0,0,.6);
+}
+
+/* ── Sidebar ── */
+#sidebar {
+  width: 240px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+#info {
+  font-size: .8rem;
+  color: var(--text-muted);
+  min-height: 2.5em;
+  white-space: pre-line;
+  line-height: 1.6;
+}
+
+/* ── Sidebar buttons ── */
+.btn {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+  font-size: .83rem;
+  text-align: left;
+  transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.btn:hover {
+  background: var(--surface3);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-dim);
+}
+
+.btn-primary {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--accent);
+  box-shadow: 0 0 12px rgba(79,142,247,.3);
+}
+
+/* ── Divider ── */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2px 0;
+}
+
+/* ── Section label ── */
+.section-label {
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 2px;
+}
+
+/* ── VCR controls ── */
+#vcr-controls {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#step-counter {
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: .78rem;
+  text-align: center;
+  color: var(--text);
+}
+
+#step-rule {
+  font-size: .72rem;
+  color: var(--text-muted);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 1.1em;
+}
+
+.vcr-row {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.vcr-btn {
+  width: 34px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface3);
+  color: var(--text);
+  cursor: pointer;
+  font-size: .85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.vcr-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+#btn-play {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: #fff;
+  width: 40px;
+}
+
+#btn-play:hover {
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(79,142,247,.35);
+}
+
+.speed-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .75rem;
+  color: var(--text-muted);
+}
+
+.speed-row input[type=range] {
+  flex: 1;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* ── Tool selector ── */
+.tool-row {
+  display: flex;
+  gap: 4px;
+}
+
+.tool-btn {
+  flex: 1;
+  padding: 6px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: .75rem;
+  text-align: center;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.tool-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.tool-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 8px rgba(79,142,247,.25);
+}
+
+/* ── Timer ── */
+#timer {
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: .8rem;
+  color: var(--text-muted);
+}
+
+/* ── Status ── */
+#status {
+  font-size: .78rem;
+  color: var(--text);
+  min-height: 2.5em;
+  word-wrap: break-word;
+  line-height: 1.5;
+  padding: 6px 8px;
+  background: var(--surface2);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+/* ── Legend ── */
+.legend { font-size: .75rem; }
+.legend-item { display: flex; align-items: center; gap: 7px; margin: 3px 0; color: var(--text-muted); }
+.swatch {
+  width: 14px; height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,.1);
+  flex-shrink: 0;
+}
+
+/* ── Paste modal ── */
+#paste-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 10;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+#paste-modal.open { display: flex; }
+
+#paste-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 24px;
+  border-radius: 12px;
+  width: 400px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.6);
+}
+
+#paste-box h2 {
+  margin-bottom: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+#paste-text {
+  width: 100%;
+  height: 160px;
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: .85rem;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  resize: vertical;
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+#paste-text:focus { border-color: var(--accent); }
+
+.paste-btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.paste-btns button {
+  padding: 7px 18px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+  font-size: .85rem;
+  transition: all var(--transition);
+}
+
+.paste-btns button:last-child {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.paste-btns button:hover { background: var(--surface3); }
+.paste-btns button:last-child:hover { background: var(--accent); }
+
+/* ── Scrollbar ── */
+#sidebar::-webkit-scrollbar { width: 4px; }
+#sidebar::-webkit-scrollbar-track { background: transparent; }
+#sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
