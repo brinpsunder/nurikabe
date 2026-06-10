@@ -72,4 +72,16 @@ export class Solver {
     this.stepCb?.(this.grid.copy(), rule);
     return true;
   }
+
+  // Rule: an island that has reached its size is surrounded by water.
+  ruleIslandComplete(): boolean {
+    let changed = false;
+    for (const isl of this.grid.islands) {
+      if (isl.cells.size !== isl.size) continue;
+      for (const idx of isl.cells)
+        for (const n of this.neighborIdx(idx))
+          changed = this.markBlack(n, 'Complete island is surrounded by water') || changed;
+    }
+    return changed;
+  }
 }

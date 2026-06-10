@@ -18,3 +18,20 @@ describe('Solver basics', () => {
     expect(g.islands[0].cells.has(1)).toBe(true);
   });
 });
+
+describe('ruleIslandComplete', () => {
+  it('surrounds a complete island with water', () => {
+    const g = gridFrom('1 0\n0 0');
+    const s = new Solver(g);
+    expect(s.ruleIslandComplete()).toBe(true);
+    expect(g.get(0, 1)).toBe(BLACK);
+    expect(g.get(1, 0)).toBe(BLACK);
+    expect(g.get(1, 1)).toBe(UNKNOWN); // diagonal is not a neighbor
+    expect(s.ruleIslandComplete()).toBe(false); // second run changes nothing
+  });
+
+  it('leaves incomplete islands alone', () => {
+    const g = gridFrom('2 0\n0 0');
+    expect(new Solver(g).ruleIslandComplete()).toBe(false);
+  });
+});
