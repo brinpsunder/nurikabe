@@ -15,11 +15,11 @@ export function gridFrom(clueText: string, overlay?: string[]): Grid {
       const idx = r * grid.cols + c;
       if (ch === '.' || grid.clues.has(idx)) continue;
       if (ch === '#') {
-        grid.cells[idx] = BLACK;
+        grid.set(r, c, BLACK);
       } else {
         const iid = ch.charCodeAt(0) - 97; // 'a' → island 0
-        grid.cells[idx] = WHITE;
-        grid.islandId[idx] = iid;
+        grid.set(r, c, WHITE);
+        grid.setIslandId(r, c, iid);
         grid.islands[iid].cells.add(idx);
       }
     }
