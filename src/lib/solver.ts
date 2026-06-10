@@ -334,6 +334,28 @@ export class Solver {
     return null;
   }
 
+  // Rule: three water cells in a 2×2 square — the fourth cannot be water
+  // (it would close a pool), so it is an island cell. Acts only when exactly
+  // one incomplete island touches that cell, and at most once per call so
+  // the touch map never goes stale.
+  ruleNoPool(): boolean {
+    const { rows, cols } = this.grid;
+    const touch = this.touchingIslands();
+    for (let r = 0; r < rows - 1; r++)
+      for (let c = 0; c < cols - 1; c++) {
+        const quad = [r * cols + c, r * cols + c + 1, (r + 1) * cols + c, (r + 1) * cols + c + 1];
+        const unknowns = quad.filter(i => this.grid.cells[i] === UNKNOWN);
+        const blacks   = quad.filter(i => this.grid.cells[i] === BLACK).length;
+        if (blacks !== 3 || unknowns.length !== 1) continue;
+        const idx = unknowns[0];
+        const iid = touch[idx];
+        if (iid >= 0 && this.grid.islands[iid].cells.size < this.grid.islands[iid].size)
+          if (this.markWhite(idx, iid, 'Fourth cell of a water pool must be island'))
+            return true;
+      }
+    return false;
+  }
+
   // Rule: an island that has reached its size is surrounded by water.
   ruleIslandComplete(): boolean {
     let changed = false;

@@ -238,6 +238,21 @@ describe('solve', () => {
   });
 });
 
+describe('ruleNoPool', () => {
+  it('marks the fourth cell of a 3-water 2×2 square as island when one island touches it', () => {
+    const g = gridFrom('3 0 0\n0 0 0', ['..#', '.##']);
+    const s = new Solver(g);
+    expect(s.ruleNoPool()).toBe(true);
+    expect(g.get(0, 1)).toBe(WHITE);
+    expect(g.getIslandId(0, 1)).toBe(0);
+  });
+
+  it('does nothing when the open cell touches no island', () => {
+    const g = gridFrom('3 0 0\n0 0 0', ['.##', '..#']);
+    expect(new Solver(g).ruleNoPool()).toBe(false);
+  });
+});
+
 describe('hint', () => {
   it('returns the first deducible cell with its rule, without changing the grid', () => {
     const g = gridFrom('1 0\n0 0');
