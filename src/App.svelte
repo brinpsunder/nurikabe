@@ -4,6 +4,18 @@
   import type { Grid } from './lib/puzzle';
   import { Solver } from './lib/solver';
 
+  let puzzleText = '';
+  let solverWorker: Worker | null = null;
+
+  function getWorker(): Worker {
+    solverWorker?.terminate();
+    solverWorker = new Worker(
+      new URL('./lib/solver.worker.ts', import.meta.url),
+      { type: 'module' }
+    );
+    return solverWorker;
+  }
+
   let grid      = $state<Grid | null>(null);
   let origGrid  = $state<Grid | null>(null);
   let status    = $state('Load a puzzle to begin');
@@ -68,7 +80,8 @@
         const idx = r * cols + c;
         const val = cells[idx];
         const iid = islandId[idx];
-        const key = `${r},${c}`;
+        const key    = `${r},${c}`;
+        const cluIdx = idx;  // flat index for clue lookup
         const x = c * cs + GAP, y = r * cs + GAP;
         const tw = cs - GAP * 2, th = cs - GAP * 2;
 
@@ -83,7 +96,7 @@
         rrect(ctx, x, y, tw, th);
         ctx.fill();
 
-        if (clues.has(key)) {
+        if (clues.has(cluIdx)) {
           ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 1.5;
           rrect(ctx, x + 1, y + 1, tw - 2, th - 2);
           ctx.stroke();
@@ -96,11 +109,11 @@
           ctx.fillText('~', c * cs + cs / 2, r * cs + cs / 2);
         }
 
-        if (clues.has(key)) {
+        if (clues.has(cluIdx)) {
           ctx.fillStyle = val === BLACK ? '#475569' : '#1e1b4b';
           ctx.font = `bold ${Math.max(9, Math.floor(cs * 0.4))}px system-ui, sans-serif`;
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText(String(clues.get(key)!), c * cs + cs / 2, r * cs + cs / 2);
+          ctx.fillText(String(clues.get(cluIdx)!), c * cs + cs / 2, r * cs + cs / 2);
         }
       }
     }
@@ -150,6 +163,7 @@
 
   function loadText(text: string) {
     try {
+      puzzleText = text;
       grid     = parsePuzzle(text);
       origGrid = grid.copy();
       status   = `${grid.rows}×${grid.cols} · ${grid.clues.size} islands`;
@@ -175,8 +189,7 @@
     if (!grid) return;
     const c = Math.floor(x / cellSize), r = Math.floor(y / cellSize);
     if (r < 0 || r >= grid.rows || c < 0 || c >= grid.cols) return;
-    const key = `${r},${c}`;
-    if (grid.clues.has(key)) return;
+    if (grid.clues.has(r * grid.cols + c)) return;
     const cur    = grid.get(r, c);
     const newVal = cur === UNKNOWN ? BLACK : cur === BLACK ? WHITE : UNKNOWN;
     grid.set(r, c, newVal);
@@ -199,23 +212,27 @@
   }
 
   async function autoSolve() {
-    if (!origGrid) { status = 'No puzzle loaded'; return; }
+    if (!puzzleText) { status = 'No puzzle loaded'; return; }
     stopVcr(); steps = [];
     status = 'Solving…'; timer = '';
     await tick();
-    await new Promise<void>(r => setTimeout(r, 10));
-    const gc = origGrid.copy();
-    const [solved, elapsed] = new Solver(gc).solve(undefined, 30);
-    if (solved && grid) {
-      grid.cells    = [...gc.cells];
-      grid.islandId = [...gc.islandId];
-      grid.islands  = gc.islands;
-    }
-    errors = new Set(); hintKey = null;
-    timer  = `${elapsed.toFixed(3)}s`;
-    status = solved ? `Solved in ${elapsed.toFixed(3)}s` : 'No solution found';
-    redraw();
-    if (solved && grid) flashComplete(grid);
+    const w = getWorker();
+    w.onmessage = (e: MessageEvent) => {
+      const { type, solved, elapsed, cells, islandId, message } = e.data;
+      if (type === 'error') { status = `Solver error: ${message}`; return; }
+      if (type !== 'result') return;
+      if (solved && grid) {
+        grid.cells    = cells;
+        grid.islandId = islandId;
+      }
+      errors = new Set(); hintKey = null;
+      timer  = `${elapsed.toFixed(3)}s`;
+      status = solved ? `Solved in ${elapsed.toFixed(3)}s` : 'No solution found (timeout)';
+      redraw();
+      if (solved && grid) flashComplete(grid);
+    };
+    w.onerror = (e) => { status = `Solver error: ${e.message}`; };
+    w.postMessage({ type: 'solve', puzzleText, timeout: 120, wantSteps: false });
   }
 
   function flashComplete(g: Grid) {
@@ -238,20 +255,22 @@
   }
 
   async function startSteps() {
-    if (!origGrid) return;
+    if (!puzzleText) return;
     if (steps.length) { togglePlay(); return; }
     stopVcr();
     status = 'Building steps…';
     await tick();
-    await new Promise<void>(r => setTimeout(r, 10));
-    const collected: Step[] = [];
-    new Solver(origGrid.copy()).solve(
-      (snap, rule) => collected.push({ cells: [...snap.cells], islandId: [...snap.islandId], rule }),
-      30
-    );
-    steps = collected; stepIdx = 0;
-    if (!steps.length) { status = 'No steps generated'; return; }
-    showStep(); playing = true; schedulePlay();
+    const w = getWorker();
+    w.onmessage = (e: MessageEvent) => {
+      const { type, snapshots, message } = e.data;
+      if (type === 'error') { status = `Steps error: ${message}`; return; }
+      if (type !== 'steps') return;
+      steps = snapshots; stepIdx = 0;
+      if (!steps.length) { status = 'No steps generated'; return; }
+      showStep(); playing = true; schedulePlay();
+    };
+    w.onerror = (e) => { status = `Steps error: ${e.message}`; };
+    w.postMessage({ type: 'solve', puzzleText, timeout: 120, wantSteps: true });
   }
 
   function showStep() {
@@ -349,6 +368,7 @@
         <option value="easy_5x5.txt">Easy 5×5</option>
         <option value="medium_10x10.txt">Medium 10×10</option>
         <option value="hard_20x20.txt">Hard 20×20</option>
+        <option value="expert_24x14.txt">Expert 24×14</option>
       </select>
       <button onclick={() => fileInput?.click()}>Load</button>
       <button onclick={() => showPaste = true}>Paste</button>

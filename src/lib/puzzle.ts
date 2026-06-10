@@ -6,25 +6,25 @@ export class Island {
   id:     number;
   origin: [number, number];
   size:   number;
-  cells:  Set<string>;  // "r,c" string keys
+  cells:  Set<number>;  // flat index r*cols+c
 
-  constructor(origin: [number, number], size: number, id: number) {
+  constructor(origin: [number, number], size: number, id: number, cols: number) {
     this.id     = id;
     this.origin = origin;
     this.size   = size;
-    this.cells  = new Set([`${origin[0]},${origin[1]}`]);
+    this.cells  = new Set([origin[0] * cols + origin[1]]);
   }
 }
 
 export class Grid {
   rows:     number;
   cols:     number;
-  clues:    Map<string, number>;  // "r,c" -> island size
+  clues:    Map<number, number>;  // flat index r*cols+c -> island size
   cells:    number[];             // UNKNOWN / BLACK / WHITE per cell
   islandId: number[];             // island id per cell, -1 = none
   islands:  Island[];
 
-  constructor(rows: number, cols: number, clues: Map<string, number>) {
+  constructor(rows: number, cols: number, clues: Map<number, number>) {
     this.rows     = rows;
     this.cols     = cols;
     this.clues    = clues;
@@ -40,8 +40,9 @@ export class Grid {
   private _buildIslands(): void {
     let iid = 0;
     for (const [key, sz] of this.clues) {
-      const [r, c] = key.split(',').map(Number);
-      const isl    = new Island([r, c], sz, iid);
+      const r   = Math.floor(key / this.cols);
+      const c   = key % this.cols;
+      const isl = new Island([r, c], sz, iid, this.cols);
       this.islands.push(isl);
       const idx = this._idx(r, c);
       this.cells[idx]    = WHITE;
@@ -73,7 +74,7 @@ export class Grid {
     g.cells      = [...this.cells];
     g.islandId   = [...this.islandId];
     g.islands    = this.islands.map(isl => {
-      const c    = new Island(isl.origin, isl.size, isl.id);
+      const c    = new Island(isl.origin, isl.size, isl.id, this.cols);
       c.cells    = new Set(isl.cells);
       return c;
     });
@@ -117,12 +118,12 @@ export function parsePuzzle(text: string): Grid {
     if (rowsData[i].length !== numCols)
       throw new Error(`Row ${i} has ${rowsData[i].length} cols, expected ${numCols}`);
 
-  const clues = new Map<string, number>();
+  const clues = new Map<number, number>();
   for (let r = 0; r < rowsData.length; r++)
     for (let c = 0; c < rowsData[r].length; c++) {
       const v = rowsData[r][c];
       if (v < 0) throw new Error(`Negative clue at (${r},${c})`);
-      if (v > 0) clues.set(`${r},${c}`, v);
+      if (v > 0) clues.set(r * numCols + c, v);
     }
 
   if (!clues.size) throw new Error('No island clues found');
@@ -142,33 +143,33 @@ export function validateSolution(grid: Grid): [boolean, string] {
       if (grid.get(r, c) === UNKNOWN) return [false, 'Grid has unknown cells'];
 
   // 2. Each island clue correct size, no overlap
-  const visitedWhite = new Set<string>();
+  const visitedWhite = new Set<number>();
   for (const [key, sz] of grid.clues) {
-    const [cr, cc] = key.split(',').map(Number);
+    const cr = Math.floor(key / cols), cc = key % cols;
     if (grid.get(cr, cc) !== WHITE) return [false, `Clue (${cr},${cc}) is not white`];
     const q: [number, number][] = [[cr, cc]];
     let qi = 0;
-    const isle = new Set<string>();
+    const isle = new Set<number>();
     while (qi < q.length) {
       const [r, c] = q[qi++];
-      const k = `${r},${c}`;
-      if (isle.has(k)) continue;
-      isle.add(k);
+      const idx = r * cols + c;
+      if (isle.has(idx)) continue;
+      isle.add(idx);
       for (const [nr, nc] of grid.neighbors(r, c))
-        if (grid.get(nr, nc) === WHITE && !isle.has(`${nr},${nc}`))
+        if (grid.get(nr, nc) === WHITE && !isle.has(nr * cols + nc))
           q.push([nr, nc]);
     }
     if (isle.size !== sz)
       return [false, `Island at (${cr},${cc}) has ${isle.size} cells, expected ${sz}`];
-    for (const cell of isle)
-      if (visitedWhite.has(cell)) return [false, `Islands merged at ${cell}`];
-    for (const cell of isle) visitedWhite.add(cell);
+    for (const idx of isle)
+      if (visitedWhite.has(idx)) return [false, `Islands merged at index ${idx}`];
+    for (const idx of isle) visitedWhite.add(idx);
   }
 
   // 3. All white cells belong to an island
   for (let r = 0; r < rows; r++)
     for (let c = 0; c < cols; c++)
-      if (grid.get(r, c) === WHITE && !visitedWhite.has(`${r},${c}`))
+      if (grid.get(r, c) === WHITE && !visitedWhite.has(r * cols + c))
         return [false, `White cell (${r},${c}) not part of any island`];
 
   // 4. No 2×2 black block
@@ -184,16 +185,16 @@ export function validateSolution(grid: Grid): [boolean, string] {
       if (grid.get(r, c) === BLACK) blacks.push([r, c]);
   if (!blacks.length) return [false, 'No black cells'];
 
-  const vb = new Set<string>();
+  const vb = new Set<number>();
   const bq: [number, number][] = [blacks[0]];
   let bqi = 0;
   while (bqi < bq.length) {
     const [r, c] = bq[bqi++];
-    const k = `${r},${c}`;
-    if (vb.has(k)) continue;
-    vb.add(k);
+    const idx = r * cols + c;
+    if (vb.has(idx)) continue;
+    vb.add(idx);
     for (const [nr, nc] of grid.neighbors(r, c))
-      if (grid.get(nr, nc) === BLACK && !vb.has(`${nr},${nc}`))
+      if (grid.get(nr, nc) === BLACK && !vb.has(nr * cols + nc))
         bq.push([nr, nc]);
   }
   if (vb.size !== blacks.length) return [false, 'Black cells are not all connected'];
