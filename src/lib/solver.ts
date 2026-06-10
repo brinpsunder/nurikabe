@@ -101,6 +101,47 @@ export class Solver {
     return changed;
   }
 
+  // For every UNKNOWN cell: list of islands that could still claim it.
+  // BFS from each incomplete island through unknown cells, limited by the
+  // island's remaining size; never enters a cell touching a different island
+  // (white there would merge the two islands).
+  computeReach(): Map<number, number[]> {
+    const reach = new Map<number, number[]>();
+    const touch = this.touchingIslands();
+    for (const isl of this.grid.islands) {
+      const remaining = isl.size - isl.cells.size;
+      if (remaining <= 0) continue;
+      const visited = new Set<number>(isl.cells);
+      const queue: [number, number][] = []; // [cell index, distance]
+      for (const idx of isl.cells)
+        for (const n of this.neighborIdx(idx))
+          if (this.grid.cells[n] === UNKNOWN && !visited.has(n)) {
+            visited.add(n); queue.push([n, 1]);
+          }
+      for (let qi = 0; qi < queue.length; qi++) {
+        const [idx, dist] = queue[qi];
+        if (dist > remaining) continue;
+        if (touch[idx] !== isl.id && touch[idx] !== NONE) continue;
+        if (!reach.has(idx)) reach.set(idx, []);
+        reach.get(idx)!.push(isl.id);
+        for (const n of this.neighborIdx(idx))
+          if (this.grid.cells[n] === UNKNOWN && !visited.has(n)) {
+            visited.add(n); queue.push([n, dist + 1]);
+          }
+      }
+    }
+    return reach;
+  }
+
+  // Rule: a cell no island can reach must be water.
+  ruleUnreachable(reach: Map<number, number[]>): boolean {
+    let changed = false;
+    for (let idx = 0; idx < this.grid.cells.length; idx++)
+      if (this.grid.cells[idx] === UNKNOWN && !reach.has(idx))
+        changed = this.markBlack(idx, 'No island can reach this cell') || changed;
+    return changed;
+  }
+
   // Rule: an island that has reached its size is surrounded by water.
   ruleIslandComplete(): boolean {
     let changed = false;

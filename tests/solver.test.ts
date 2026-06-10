@@ -51,3 +51,20 @@ describe('ruleSeparateIslands', () => {
     expect(g.get(0, 1)).toBe(UNKNOWN);
   });
 });
+
+describe('computeReach / ruleUnreachable', () => {
+  it('marks cells beyond every island\'s reach as water', () => {
+    const g = gridFrom('2 0 0 0'); // island needs 1 more cell, reach distance 1
+    const s = new Solver(g);
+    expect(s.ruleUnreachable(s.computeReach())).toBe(true);
+    expect(g.get(0, 1)).toBe(UNKNOWN); // reachable
+    expect(g.get(0, 2)).toBe(BLACK);
+    expect(g.get(0, 3)).toBe(BLACK);
+  });
+
+  it('reach never enters a cell that touches a different island', () => {
+    const g = gridFrom('3 0 1'); // middle cell touches both islands
+    const reach = new Solver(g).computeReach();
+    expect(reach.has(1)).toBe(false);
+  });
+});
