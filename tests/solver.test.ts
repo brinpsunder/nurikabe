@@ -114,3 +114,17 @@ describe('computeReach / ruleUnreachable', () => {
     expect(g.get(0, 1)).toBe(UNKNOWN);
   });
 });
+
+describe('ruleSeaExpansion', () => {
+  it('extends a water region that has a single escape cell', () => {
+    const g = gridFrom('1 0 0 1', ['.#..']); // 2 water cells needed in total
+    const s = new Solver(g);
+    expect(s.ruleSeaExpansion()).toBe(true);
+    expect(g.get(0, 2)).toBe(BLACK);
+  });
+
+  it('does nothing when the sea is already complete and connected', () => {
+    const g = gridFrom('1 0', ['.#']); // 1 water cell needed, 1 placed
+    expect(new Solver(g).ruleSeaExpansion()).toBe(false);
+  });
+});

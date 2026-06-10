@@ -182,6 +182,40 @@ export class Solver {
     return changed;
   }
 
+  // Connected groups of water cells, each with its unknown border cells.
+  private seaRegions(): { cells: number[]; liberties: number[] }[] {
+    const seen = new Set<number>();
+    const regions: { cells: number[]; liberties: number[] }[] = [];
+    for (let start = 0; start < this.grid.cells.length; start++) {
+      if (this.grid.cells[start] !== BLACK || seen.has(start)) continue;
+      const cells = [start];
+      seen.add(start);
+      const liberties = new Set<number>();
+      for (let qi = 0; qi < cells.length; qi++)
+        for (const n of this.neighborIdx(cells[qi])) {
+          if (this.grid.cells[n] === BLACK && !seen.has(n)) { seen.add(n); cells.push(n); }
+          if (this.grid.cells[n] === UNKNOWN) liberties.add(n);
+        }
+      regions.push({ cells, liberties: [...liberties] });
+    }
+    return regions;
+  }
+
+  // Rule: all water must end up connected. While the sea still has to grow
+  // (more water needed, or several separate regions), a region with a single
+  // unknown border cell must claim it — every path out goes through it.
+  ruleSeaExpansion(): boolean {
+    const regions = this.seaRegions();
+    const mustGrow = regions.length >= 2 || this.count(BLACK) < this.blackTarget;
+    if (!mustGrow) return false;
+    let changed = false;
+    for (const reg of regions)
+      if (reg.liberties.length === 1)
+        changed = this.markBlack(reg.liberties[0],
+          'Water region has only one way to stay connected') || changed;
+    return changed;
+  }
+
   // Rule: an island that has reached its size is surrounded by water.
   ruleIslandComplete(): boolean {
     let changed = false;
