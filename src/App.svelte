@@ -368,7 +368,11 @@
         <option value="easy_5x5.txt">Easy 5×5</option>
         <option value="medium_10x10.txt">Medium 10×10</option>
         <option value="hard_20x20.txt">Hard 20×20</option>
-        <option value="expert_24x14.txt">Expert 24×14</option>
+        <option value="primer1_18x10.txt">Primer 1 (18×10)</option>
+        <option value="primer2_24x14.txt">Primer 2 (24×14)</option>
+        <option value="primer3_24x14.txt">Primer 3 (24×14)</option>
+        <option value="vrazji1_24x14.txt">Vražji 1 (24×14)</option>
+        <option value="vrazji2_24x14.txt">Vražji 2 (24×14)</option>
       </select>
       <button onclick={() => fileInput?.click()}>Load</button>
       <button onclick={() => showPaste = true}>Paste</button>
