@@ -48,6 +48,8 @@ export class Solver {
       const libs = this.islandLiberties(isl);
       if (!best || libs.length < best.libs.length) best = { isl, libs };
     }
+    // Unreachable after propagate(): if every island were complete,
+    // ruleSeaFill would have flooded the rest and isComplete() were true.
     if (!best) return false;
 
     for (const idx of best.libs) {

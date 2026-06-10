@@ -229,7 +229,10 @@ describe('solve', () => {
   it('reports every assignment through the step callback', () => {
     const g = gridFrom('1 0\n0 0');
     const rules: string[] = [];
-    const [ok] = new Solver(g).solve((_snap, rule) => rules.push(rule));
+    const [ok] = new Solver(g).solve((snap, rule) => {
+      expect(snap).not.toBe(g); // snapshot must be a copy, GUI stores it
+      rules.push(rule);
+    });
     expect(ok).toBe(true);
     expect(rules.length).toBeGreaterThan(0);
   });
