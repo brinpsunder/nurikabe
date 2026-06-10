@@ -237,3 +237,24 @@ describe('solve', () => {
     expect(rules.length).toBeGreaterThan(0);
   });
 });
+
+describe('hint', () => {
+  it('returns the first deducible cell with its rule, without changing the grid', () => {
+    const g = gridFrom('1 0\n0 0');
+    const before = [...g.cells];
+    const h = new Solver(g).hint();
+    expect(h).not.toBeNull();
+    const [[r, c], value, rule] = h!;
+    expect(value).toBe(BLACK);
+    expect(rule).toBe('Complete island is surrounded by water');
+    expect(['0,1', '1,0']).toContain(`${r},${c}`);
+    expect(g.cells).toEqual(before);
+  });
+
+  it('returns null when no rule applies', () => {
+    // size-4 island in a 2×3 grid: every cell reachable, two liberties,
+    // no island fill (5 reachable ≠ 3 remaining), no water yet
+    const g = gridFrom('4 0 0\n0 0 0');
+    expect(new Solver(g).hint()).toBeNull();
+  });
+});

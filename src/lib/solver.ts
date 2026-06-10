@@ -64,8 +64,32 @@ export class Solver {
     return false;
   }
 
+  // Try each rule on its own; return the first cell any rule decides,
+  // with the rule's explanation. The grid is left untouched.
   hint(): [[number, number], number, string] | null {
-    return null; // real implementation in a later task
+    const snap = this.grid.copy();
+    const reach = this.computeReach();
+    const rules: [() => boolean, string][] = [
+      [() => this.ruleIslandComplete(),   'Complete island is surrounded by water'],
+      [() => this.ruleSeparateIslands(),  'Cell between two islands must be water'],
+      [() => this.ruleUnreachable(reach), 'No island can reach this cell'],
+      [() => this.ruleForcedExpansion(),  'Island has only one way to grow'],
+      [() => this.ruleIslandFill(reach),  'Island needs every reachable cell'],
+      [() => this.ruleSeaExpansion(),     'Water region has only one way to stay connected'],
+      [() => this.ruleSeaFill(),          'All islands are complete — the rest is water'],
+    ];
+    for (const [run, name] of rules) {
+      const before = [...this.grid.cells];
+      run();
+      for (let idx = 0; idx < before.length; idx++)
+        if (before[idx] !== this.grid.cells[idx]) {
+          const value = this.grid.cells[idx];
+          this.grid.restore(snap); // restore() also restores island cell sets
+          return [[Math.floor(idx / this.grid.cols), idx % this.grid.cols], value, name];
+        }
+      this.grid.restore(snap);
+    }
+    return null;
   }
 
   // Rebuild each island's cell set from the grid arrays, so a Solver can be
