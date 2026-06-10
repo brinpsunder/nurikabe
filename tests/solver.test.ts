@@ -74,6 +74,23 @@ describe('ruleForcedExpansion', () => {
   });
 });
 
+describe('ruleIslandFill', () => {
+  it('fills an island whose reachable cells exactly match its remaining size', () => {
+    const g = gridFrom('3 0 0\n0 0 0', ['...', '###']);
+    const s = new Solver(g);
+    expect(s.ruleIslandFill(s.computeReach())).toBe(true);
+    expect(g.get(0, 1)).toBe(WHITE);
+    expect(g.get(0, 2)).toBe(WHITE);
+    expect(g.getIslandId(0, 2)).toBe(0);
+  });
+
+  it('does nothing when the island has spare room', () => {
+    const g = gridFrom('2 0\n0 0'); // needs 1 more cell, can reach 2 cells
+    const s = new Solver(g);
+    expect(s.ruleIslandFill(s.computeReach())).toBe(false);
+  });
+});
+
 describe('computeReach / ruleUnreachable', () => {
   it('marks cells beyond every island\'s reach as water', () => {
     const g = gridFrom('2 0 0 0'); // island needs 1 more cell, reach distance 1

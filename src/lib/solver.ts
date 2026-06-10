@@ -133,6 +133,25 @@ export class Solver {
     return reach;
   }
 
+  // Rule: if the cells an island can reach are exactly as many as it still
+  // needs, all of them are island cells. Fills at most one island per call —
+  // the caller recomputes reach before the next deduction (marking cells
+  // white invalidates the map).
+  ruleIslandFill(reach: Map<number, number[]>): boolean {
+    for (const isl of this.grid.islands) {
+      const remaining = isl.size - isl.cells.size;
+      if (remaining <= 0) continue;
+      const mine: number[] = [];
+      for (const [idx, ids] of reach) if (ids.includes(isl.id)) mine.push(idx);
+      if (mine.length === remaining) {
+        for (const idx of mine)
+          this.markWhite(idx, isl.id, 'Island needs every reachable cell');
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Rule: a cell no island can reach must be water.
   ruleUnreachable(reach: Map<number, number[]>): boolean {
     let changed = false;
