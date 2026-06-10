@@ -77,6 +77,8 @@ export class Solver {
       [() => this.ruleIslandFill(reach),  'Island needs every reachable cell'],
       [() => this.ruleSeaExpansion(),     'Water region has only one way to stay connected'],
       [() => this.ruleSeaFill(),          'All islands are complete — the rest is water'],
+      [() => this.ruleNoPool(),           'Fourth cell of a water pool must be island'],
+      [() => this.ruleCutCell(),          'Island cannot reach its size without this cell'],
     ];
     for (const [run, name] of rules) {
       const before = [...this.grid.cells];
@@ -284,19 +286,24 @@ export class Solver {
     return changed;
   }
 
-  // Apply rules until none changes anything. Cheap rules first; the
-  // reach-based rules (which need a fresh BFS map) only run when the cheap
-  // ones have stalled, so the map is never stale.
+  // Apply rules until none changes anything. Tier 1: cheap rules, all in
+  // sequence. Tier 2 (when tier 1 stalls): reach-based rules on a fresh BFS
+  // map. Tier 3 (when both stall): the expensive pool/cut-cell analyses.
   // Returns false if the resulting grid is contradictory.
   propagate(): boolean {
     let changed = true;
     while (changed) {
-      changed = this.ruleIslandComplete() || this.ruleSeparateIslands()
-             || this.ruleForcedExpansion() || this.ruleSeaExpansion()
-             || this.ruleSeaFill();
+      changed = false;
+      changed = this.ruleIslandComplete()  || changed;
+      changed = this.ruleSeparateIslands() || changed;
+      changed = this.ruleForcedExpansion() || changed;
+      changed = this.ruleSeaExpansion()    || changed;
+      changed = this.ruleSeaFill()         || changed;
       if (changed) continue;
       const reach = this.computeReach();
       changed = this.ruleUnreachable(reach) || this.ruleIslandFill(reach);
+      if (changed) continue;
+      changed = this.ruleNoPool() || this.ruleCutCell();
     }
     return this.contradiction() === null;
   }
@@ -326,6 +333,8 @@ export class Solver {
           return '2×2 water pool';
 
     const regions = this.seaRegions();
+    if (regions.length >= 2 && this.count(BLACK) === this.blackTarget)
+      return 'water split';
     const mustGrow = regions.length >= 2 || this.count(BLACK) < this.blackTarget;
     if (mustGrow)
       for (const reg of regions)

@@ -238,6 +238,13 @@ describe('solve', () => {
   });
 });
 
+describe('water split contradiction', () => {
+  it('detects two water regions when no more water may be placed', () => {
+    const g = gridFrom('1 0 1 0 1', ['.#.#.']); // blackTarget 2, both placed, split sea
+    expect(new Solver(g).contradiction()).toBe('water split');
+  });
+});
+
 describe('ruleCutCell', () => {
   it('forces the liberty without which the island cannot reach its size', () => {
     // island 0 has liberties (0,1) and (1,0); without (0,1) it can only
