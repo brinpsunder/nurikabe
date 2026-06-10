@@ -28,7 +28,38 @@ export class Solver {
     this.timeout = timeout;
     this.start = this.now();
     this.stepCb = stepCallback ?? null;
-    return [false, this.now() - this.start]; // real search in a later task
+    const ok = this.search();
+    return [ok, this.now() - this.start];
+  }
+
+  // Depth-first search. Propagate; if stuck, branch on the liberties of the
+  // incomplete island with the fewest of them. A white cell adjacent to an
+  // island can only belong to that island (anything else would merge two
+  // islands), so a refuted white guess means the cell is water — each failed
+  // branch leaves a permanent deduction behind.
+  private search(): boolean {
+    if (this.now() - this.start > this.timeout) return false;
+    if (!this.propagate()) return false;
+    if (this.grid.isComplete()) return validateSolution(this.grid)[0];
+
+    let best: { isl: Island; libs: number[] } | null = null;
+    for (const isl of this.grid.islands) {
+      if (isl.cells.size >= isl.size) continue;
+      const libs = this.islandLiberties(isl);
+      if (!best || libs.length < best.libs.length) best = { isl, libs };
+    }
+    if (!best) return false;
+
+    for (const idx of best.libs) {
+      const snap = this.grid.copy();
+      this.markWhite(idx, best.isl.id, 'Search: try island cell');
+      if (this.search()) return true;
+      this.grid.restore(snap);
+      // A white cell next to this island would merge with it, so if white
+      // fails the cell must be water.
+      this.markBlack(idx, 'Search: guess refuted, cell is water');
+    }
+    return false;
   }
 
   hint(): [[number, number], number, string] | null {

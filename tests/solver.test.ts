@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { Solver } from '../src/lib/solver';
 import { gridFrom } from './helpers';
-import { UNKNOWN, BLACK, WHITE, validateSolution } from '../src/lib/puzzle';
+import { UNKNOWN, BLACK, WHITE, validateSolution, parsePuzzle } from '../src/lib/puzzle';
 
 describe('Solver basics', () => {
   it('computes white and black cell targets from the clues', () => {
@@ -188,5 +189,48 @@ describe('propagate', () => {
   it('reports contradictions', () => {
     const g = gridFrom('3 0 0 0 0', ['.#...']);
     expect(new Solver(g).propagate()).toBe(false);
+  });
+});
+
+const loadPuzzle = (name: string) =>
+  parsePuzzle(readFileSync(`public/puzzles/${name}`, 'utf8'));
+
+describe('solve', () => {
+  it('solves easy 5×5 within 1 s', () => {
+    const g = loadPuzzle('easy_5x5.txt');
+    const [ok, elapsed] = new Solver(g).solve();
+    expect(ok).toBe(true);
+    expect(validateSolution(g)[0]).toBe(true);
+    expect(elapsed).toBeLessThan(1);
+  });
+
+  it('solves medium 10×10 within 1 s', () => {
+    const g = loadPuzzle('medium_10x10.txt');
+    const [ok, elapsed] = new Solver(g).solve();
+    expect(ok).toBe(true);
+    expect(validateSolution(g)[0]).toBe(true);
+    expect(elapsed).toBeLessThan(1);
+  });
+
+  it('reports failure on an unsolvable puzzle instead of hanging', () => {
+    const g = gridFrom('3 0 0 0 0', ['.#...']);
+    const [ok] = new Solver(g).solve(undefined, 5);
+    expect(ok).toBe(false);
+  });
+
+  it('respects the timeout, tested with an injected fake clock', () => {
+    let t = 0;
+    const fakeClock = () => (t += 10); // every look at the clock jumps 10 s
+    const g = loadPuzzle('medium_10x10.txt');
+    const [ok] = new Solver(g, fakeClock).solve(undefined, 1);
+    expect(ok).toBe(false); // gave up because of time, not because it is unsolvable
+  });
+
+  it('reports every assignment through the step callback', () => {
+    const g = gridFrom('1 0\n0 0');
+    const rules: string[] = [];
+    const [ok] = new Solver(g).solve((_snap, rule) => rules.push(rule));
+    expect(ok).toBe(true);
+    expect(rules.length).toBeGreaterThan(0);
   });
 });
