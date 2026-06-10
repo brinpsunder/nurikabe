@@ -15,11 +15,29 @@ export class Solver {
   private start = 0;
   private stepCb: StepCb | null = null;
   private now: () => number; // seconds; injectable so tests control time (DIP)
+  private nbr: number[][]; // neighbor indices per cell, precomputed once
+  // Reusable BFS scratch (avoids allocating sets/queues in hot loops):
+  // a cell is "visited" when stamp[idx] === gen; bumping gen clears all.
+  private stamp: Int32Array;
+  private gen = 0;
+  private bfsQueue: Int32Array;
+  private bfsDist: Int32Array;
+  // Undo log: every markBlack/markWhite records its cell here, so search can
+  // rewind cheaply instead of copying the whole grid at every branch.
+  private trail: number[] = [];
 
   constructor(grid: Grid, now: () => number = () => performance.now() / 1000) {
     this.grid = grid;
     this.now = now;
     this.whiteTarget = [...grid.clues.values()].reduce((a, b) => a + b, 0);
+    const n = grid.rows * grid.cols;
+    this.stamp = new Int32Array(n);
+    this.bfsQueue = new Int32Array(n);
+    this.bfsDist = new Int32Array(n);
+    this.nbr = Array.from({ length: n }, (_, idx) => {
+      const r = Math.floor(idx / grid.cols), c = idx % grid.cols;
+      return grid.neighbors(r, c).map(([nr, nc]) => nr * grid.cols + nc);
+    });
     this.blackTarget = grid.rows * grid.cols - this.whiteTarget;
     this.syncIslands();
   }
@@ -37,31 +55,65 @@ export class Solver {
   // island can only belong to that island (anything else would merge two
   // islands), so a refuted white guess means the cell is water — each failed
   // branch leaves a permanent deduction behind.
+  nodes = 0; // search states explored — shown in the report, handy for tuning
   private search(): boolean {
+    this.nodes++;
     if (this.now() - this.start > this.timeout) return false;
     if (!this.propagate()) return false;
     if (this.grid.isComplete()) return validateSolution(this.grid)[0];
 
-    let best: { isl: Island; libs: number[] } | null = null;
+    // Branch where the puzzle is tightest: fewest liberties, then least
+    // spare room (reachable cells minus still-needed cells).
+    const reach = this.computeReach();
+    const slack = new Map<number, number>();
+    for (const ids of reach.values())
+      for (const id of ids) slack.set(id, (slack.get(id) ?? 0) + 1);
+    let best: { isl: Island; libs: number[]; score: number } | null = null;
     for (const isl of this.grid.islands) {
-      if (isl.cells.size >= isl.size) continue;
+      const remaining = isl.size - isl.cells.size;
+      if (remaining <= 0) continue;
       const libs = this.islandLiberties(isl);
-      if (!best || libs.length < best.libs.length) best = { isl, libs };
+      const score = libs.length * 100 + (slack.get(isl.id) ?? 0) - remaining;
+      if (!best || score < best.score) best = { isl, libs, score };
     }
     // Unreachable after propagate(): if every island were complete,
     // ruleSeaFill would have flooded the rest and isComplete() were true.
     if (!best) return false;
 
+    // Probe before branching: a liberty that breaks the puzzle when tried as
+    // water must be island — turns whole subtrees into direct deductions.
+    const forced = best.libs.filter(idx => this.probesAsContradiction(idx));
+    if (forced.length) {
+      for (const idx of forced)
+        this.markWhite(idx, best.isl.id, 'Water here would break the puzzle');
+      return this.search();
+    }
+
     for (const idx of best.libs) {
-      const snap = this.grid.copy();
+      const mark = this.trail.length;
       this.markWhite(idx, best.isl.id, 'Search: try island cell');
       if (this.search()) return true;
-      this.grid.restore(snap);
+      this.undoTo(mark);
       // A white cell next to this island would merge with it, so if white
       // fails the cell must be water.
       this.markBlack(idx, 'Search: guess refuted, cell is water');
     }
     return false;
+  }
+
+  // Tentatively set the cell to water and propagate; true if that leads to a
+  // contradiction. The grid (and the step callback) are left untouched.
+  private probesAsContradiction(idx: number): boolean {
+    const mark = this.trail.length;
+    const cb = this.stepCb;
+    this.stepCb = null; // probes are scratch work, not steps to show
+    this.grid.cells[idx] = BLACK;
+    this.grid.islandId[idx] = -1;
+    this.trail.push(idx);
+    const broken = !this.propagate();
+    this.undoTo(mark);
+    this.stepCb = cb;
+    return broken;
   }
 
   // Try each rule on its own; return the first cell any rule decides,
@@ -104,9 +156,19 @@ export class Solver {
     }
   }
 
-  private neighborIdx(idx: number): number[] {
-    const r = Math.floor(idx / this.grid.cols), c = idx % this.grid.cols;
-    return this.grid.neighbors(r, c).map(([nr, nc]) => nr * this.grid.cols + nc);
+
+  private nbrOf(idx: number): number[] { return this.nbr[idx]; }
+
+  // Rewind every mark made after the given trail position.
+  private undoTo(mark: number): void {
+    while (this.trail.length > mark) {
+      const idx = this.trail.pop()!;
+      const iid = this.grid.islandId[idx];
+      if (this.grid.cells[idx] === WHITE && iid >= 0)
+        this.grid.islands[iid].cells.delete(idx);
+      this.grid.cells[idx] = UNKNOWN;
+      this.grid.islandId[idx] = -1;
+    }
   }
 
   private count(value: number): number {
@@ -119,6 +181,7 @@ export class Solver {
     if (this.grid.cells[idx] !== UNKNOWN) return false;
     this.grid.cells[idx] = BLACK;
     this.grid.islandId[idx] = -1;
+    this.trail.push(idx);
     this.stepCb?.(this.grid.copy(), rule);
     return true;
   }
@@ -128,6 +191,7 @@ export class Solver {
     this.grid.cells[idx] = WHITE;
     this.grid.islandId[idx] = iid;
     this.grid.islands[iid].cells.add(idx);
+    this.trail.push(idx);
     this.stepCb?.(this.grid.copy(), rule);
     return true;
   }
@@ -135,18 +199,16 @@ export class Solver {
   // For every cell: which island's white cells touch it —
   // NONE, a single island id, or MULTI for two or more different islands.
   touchingIslands(): number[] {
-    const { rows, cols } = this.grid;
-    const touch: number[] = new Array(rows * cols).fill(NONE);
-    for (let r = 0; r < rows; r++)
-      for (let c = 0; c < cols; c++) {
-        const iid = this.grid.getIslandId(r, c);
-        if (this.grid.get(r, c) !== WHITE || iid < 0) continue;
-        for (const [nr, nc] of this.grid.neighbors(r, c)) {
-          const idx = nr * cols + nc;
-          if (touch[idx] === NONE) touch[idx] = iid;
-          else if (touch[idx] !== iid) touch[idx] = MULTI;
-        }
+    const cells = this.grid.cells;
+    const touch: number[] = new Array(cells.length).fill(NONE);
+    for (let i = 0; i < cells.length; i++) {
+      const iid = this.grid.islandId[i];
+      if (cells[i] !== WHITE || iid < 0) continue;
+      for (const n of this.nbr[i]) {
+        if (touch[n] === NONE) touch[n] = iid;
+        else if (touch[n] !== iid) touch[n] = MULTI;
       }
+    }
     return touch;
   }
 
@@ -167,25 +229,28 @@ export class Solver {
   computeReach(): Map<number, number[]> {
     const reach = new Map<number, number[]>();
     const touch = this.touchingIslands();
+    const { stamp, bfsQueue, bfsDist } = this;
     for (const isl of this.grid.islands) {
       const remaining = isl.size - isl.cells.size;
       if (remaining <= 0) continue;
-      const visited = new Set<number>(isl.cells);
-      const queue: [number, number][] = []; // [cell index, distance]
-      for (const idx of isl.cells)
-        for (const n of this.neighborIdx(idx))
-          if (this.grid.cells[n] === UNKNOWN && !visited.has(n)) {
-            visited.add(n); queue.push([n, 1]);
+      const gen = ++this.gen;
+      let qe = 0;
+      for (const idx of isl.cells) {
+        stamp[idx] = gen;
+        for (const n of this.nbrOf(idx))
+          if (this.grid.cells[n] === UNKNOWN && stamp[n] !== gen) {
+            stamp[n] = gen; bfsQueue[qe] = n; bfsDist[qe++] = 1;
           }
-      for (let qi = 0; qi < queue.length; qi++) {
-        const [idx, dist] = queue[qi];
+      }
+      for (let qi = 0; qi < qe; qi++) {
+        const idx = bfsQueue[qi], dist = bfsDist[qi];
         if (dist > remaining) continue;
         if (touch[idx] !== isl.id && touch[idx] !== NONE) continue;
         if (!reach.has(idx)) reach.set(idx, []);
         reach.get(idx)!.push(isl.id);
-        for (const n of this.neighborIdx(idx))
-          if (this.grid.cells[n] === UNKNOWN && !visited.has(n)) {
-            visited.add(n); queue.push([n, dist + 1]);
+        for (const n of this.nbrOf(idx))
+          if (this.grid.cells[n] === UNKNOWN && stamp[n] !== gen) {
+            stamp[n] = gen; bfsQueue[qe] = n; bfsDist[qe++] = dist + 1;
           }
       }
     }
@@ -224,7 +289,7 @@ export class Solver {
   private islandLiberties(isl: Island): number[] {
     const libs = new Set<number>();
     for (const idx of isl.cells)
-      for (const n of this.neighborIdx(idx))
+      for (const n of this.nbrOf(idx))
         if (this.grid.cells[n] === UNKNOWN) libs.add(n);
     return [...libs];
   }
@@ -243,19 +308,27 @@ export class Solver {
 
   // Connected groups of water cells, each with its unknown border cells.
   private seaRegions(): { cells: number[]; liberties: number[] }[] {
-    const seen = new Set<number>();
     const regions: { cells: number[]; liberties: number[] }[] = [];
+    const { stamp } = this;
+    const seenGen = ++this.gen;   // marks water cells already in a region
+    const libGen = new Int32Array(stamp.length); // dedup liberties per region
+    let regionNo = 0;
     for (let start = 0; start < this.grid.cells.length; start++) {
-      if (this.grid.cells[start] !== BLACK || seen.has(start)) continue;
+      if (this.grid.cells[start] !== BLACK || stamp[start] === seenGen) continue;
+      regionNo++;
       const cells = [start];
-      seen.add(start);
-      const liberties = new Set<number>();
+      stamp[start] = seenGen;
+      const liberties: number[] = [];
       for (let qi = 0; qi < cells.length; qi++)
-        for (const n of this.neighborIdx(cells[qi])) {
-          if (this.grid.cells[n] === BLACK && !seen.has(n)) { seen.add(n); cells.push(n); }
-          if (this.grid.cells[n] === UNKNOWN) liberties.add(n);
+        for (const n of this.nbrOf(cells[qi])) {
+          if (this.grid.cells[n] === BLACK && stamp[n] !== seenGen) {
+            stamp[n] = seenGen; cells.push(n);
+          }
+          if (this.grid.cells[n] === UNKNOWN && libGen[n] !== regionNo) {
+            libGen[n] = regionNo; liberties.push(n);
+          }
         }
-      regions.push({ cells, liberties: [...liberties] });
+      regions.push({ cells, liberties });
     }
     return regions;
   }
@@ -340,6 +413,23 @@ export class Solver {
       for (const reg of regions)
         if (reg.liberties.length === 0) return 'water region walled off';
 
+    // The final sea is one connected piece, and it can only occupy cells that
+    // are water or still unknown — so every water cell must sit in a single
+    // connected component of (water ∪ unknown).
+    if (regions.length >= 2) {
+      const { stamp } = this;
+      const gen = ++this.gen;
+      const queue = [regions[0].cells[0]];
+      stamp[queue[0]] = gen;
+      for (let qi = 0; qi < queue.length; qi++)
+        for (const n of this.nbrOf(queue[qi]))
+          if (this.grid.cells[n] !== WHITE && stamp[n] !== gen) {
+            stamp[n] = gen; queue.push(n);
+          }
+      for (const reg of regions)
+        if (stamp[reg.cells[0]] !== gen) return 'sea cannot connect';
+    }
+
     return null;
   }
 
@@ -366,23 +456,26 @@ export class Solver {
   // blocking); stops early once `remaining` cells are found.
   private reachableWithout(isl: Island, excluded: number, touch: number[]): number {
     const remaining = isl.size - isl.cells.size;
-    const visited = new Set<number>(isl.cells);
-    visited.add(excluded);
-    const queue: [number, number][] = [];
-    for (const idx of isl.cells)
-      for (const n of this.neighborIdx(idx))
-        if (this.grid.cells[n] === UNKNOWN && !visited.has(n)) {
-          visited.add(n); queue.push([n, 1]);
+    const { stamp, bfsQueue, bfsDist } = this;
+    const gen = ++this.gen;
+    stamp[excluded] = gen;
+    let qe = 0;
+    for (const idx of isl.cells) {
+      stamp[idx] = gen;
+      for (const n of this.nbrOf(idx))
+        if (this.grid.cells[n] === UNKNOWN && stamp[n] !== gen) {
+          stamp[n] = gen; bfsQueue[qe] = n; bfsDist[qe++] = 1;
         }
+    }
     let found = 0;
-    for (let qi = 0; qi < queue.length; qi++) {
-      const [idx, dist] = queue[qi];
+    for (let qi = 0; qi < qe; qi++) {
+      const idx = bfsQueue[qi], dist = bfsDist[qi];
       if (dist > remaining) continue;
       if (touch[idx] !== isl.id && touch[idx] !== NONE) continue;
       if (++found >= remaining) return found;
-      for (const n of this.neighborIdx(idx))
-        if (this.grid.cells[n] === UNKNOWN && !visited.has(n)) {
-          visited.add(n); queue.push([n, dist + 1]);
+      for (const n of this.nbrOf(idx))
+        if (this.grid.cells[n] === UNKNOWN && stamp[n] !== gen) {
+          stamp[n] = gen; bfsQueue[qe] = n; bfsDist[qe++] = dist + 1;
         }
     }
     return found;
@@ -416,7 +509,7 @@ export class Solver {
     for (const isl of this.grid.islands) {
       if (isl.cells.size !== isl.size) continue;
       for (const idx of isl.cells)
-        for (const n of this.neighborIdx(idx))
+        for (const n of this.nbrOf(idx))
           changed = this.markBlack(n, 'Complete island is surrounded by water') || changed;
     }
     return changed;
