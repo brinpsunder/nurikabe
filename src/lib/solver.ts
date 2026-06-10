@@ -334,6 +334,51 @@ export class Solver {
     return null;
   }
 
+  // Rule: if excluding a liberty cell leaves the island with fewer reachable
+  // cells than it still needs, that liberty must be an island cell. Acts at
+  // most once per call (a new white cell invalidates the analysis).
+  ruleCutCell(): boolean {
+    const touch = this.touchingIslands();
+    for (const isl of this.grid.islands) {
+      const remaining = isl.size - isl.cells.size;
+      if (remaining <= 0) continue;
+      for (const lib of this.islandLiberties(isl)) {
+        if (touch[lib] !== isl.id) continue; // only liberties touching just this island
+        if (this.reachableWithout(isl, lib, touch) < remaining)
+          if (this.markWhite(lib, isl.id, 'Island cannot reach its size without this cell'))
+            return true;
+      }
+    }
+    return false;
+  }
+
+  // How many unknown cells the island could still claim if `excluded` were
+  // off-limits. Same BFS as computeReach (distance bound, other-island
+  // blocking); stops early once `remaining` cells are found.
+  private reachableWithout(isl: Island, excluded: number, touch: number[]): number {
+    const remaining = isl.size - isl.cells.size;
+    const visited = new Set<number>(isl.cells);
+    visited.add(excluded);
+    const queue: [number, number][] = [];
+    for (const idx of isl.cells)
+      for (const n of this.neighborIdx(idx))
+        if (this.grid.cells[n] === UNKNOWN && !visited.has(n)) {
+          visited.add(n); queue.push([n, 1]);
+        }
+    let found = 0;
+    for (let qi = 0; qi < queue.length; qi++) {
+      const [idx, dist] = queue[qi];
+      if (dist > remaining) continue;
+      if (touch[idx] !== isl.id && touch[idx] !== NONE) continue;
+      if (++found >= remaining) return found;
+      for (const n of this.neighborIdx(idx))
+        if (this.grid.cells[n] === UNKNOWN && !visited.has(n)) {
+          visited.add(n); queue.push([n, dist + 1]);
+        }
+    }
+    return found;
+  }
+
   // Rule: three water cells in a 2×2 square — the fourth cannot be water
   // (it would close a pool), so it is an island cell. Acts only when exactly
   // one incomplete island touches that cell, and at most once per call so
