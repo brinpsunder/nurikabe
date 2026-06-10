@@ -143,3 +143,35 @@ describe('ruleSeaFill', () => {
     expect(new Solver(g).ruleSeaFill()).toBe(false);
   });
 });
+
+describe('contradiction', () => {
+  it('accepts a fresh consistent grid', () => {
+    const g = gridFrom('2 0 0\n0 0 0');
+    expect(new Solver(g).contradiction()).toBeNull();
+  });
+
+  it('detects an island that grew past its clue', () => {
+    const g = gridFrom('1 0 0', ['.a.']);
+    expect(new Solver(g).contradiction()).toBe('island too big');
+  });
+
+  it('detects an island that can no longer reach its size', () => {
+    const g = gridFrom('3 0 0 0 0', ['.#...']); // wall right next to the clue
+    expect(new Solver(g).contradiction()).toBe('island cannot reach its size');
+  });
+
+  it('detects a 2×2 water pool', () => {
+    const g = gridFrom('2 0 0\n0 0 0', ['.##', '.##']);
+    expect(new Solver(g).contradiction()).toBe('2×2 water pool');
+  });
+
+  it('detects a walled-off water region that must still grow', () => {
+    const g = gridFrom('1 0 1 0', ['.#..']);
+    expect(new Solver(g).contradiction()).toBe('water region walled off');
+  });
+
+  it('detects too much water', () => {
+    const g = gridFrom('3 0\n0 0', ['.#', '##']); // blackTarget is 1
+    expect(new Solver(g).contradiction()).toBe('too much water');
+  });
+});

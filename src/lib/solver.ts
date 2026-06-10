@@ -227,6 +227,39 @@ export class Solver {
     return changed;
   }
 
+  // Why the current grid can no longer lead to a solution — or null if it can.
+  contradiction(): string | null {
+    const { rows, cols } = this.grid;
+    for (const isl of this.grid.islands)
+      if (isl.cells.size > isl.size) return 'island too big';
+    if (this.count(BLACK) > this.blackTarget) return 'too much water';
+    if (this.count(WHITE) > this.whiteTarget) return 'too many island cells';
+
+    const reach = this.computeReach();
+    const perIsland = new Map<number, number>();
+    for (const ids of reach.values())
+      for (const id of ids) perIsland.set(id, (perIsland.get(id) ?? 0) + 1);
+    for (const isl of this.grid.islands) {
+      const remaining = isl.size - isl.cells.size;
+      if (remaining > 0 && (perIsland.get(isl.id) ?? 0) < remaining)
+        return 'island cannot reach its size';
+    }
+
+    for (let r = 0; r < rows - 1; r++)
+      for (let c = 0; c < cols - 1; c++)
+        if (this.grid.get(r, c) === BLACK && this.grid.get(r, c + 1) === BLACK &&
+            this.grid.get(r + 1, c) === BLACK && this.grid.get(r + 1, c + 1) === BLACK)
+          return '2×2 water pool';
+
+    const regions = this.seaRegions();
+    const mustGrow = regions.length >= 2 || this.count(BLACK) < this.blackTarget;
+    if (mustGrow)
+      for (const reg of regions)
+        if (reg.liberties.length === 0) return 'water region walled off';
+
+    return null;
+  }
+
   // Rule: an island that has reached its size is surrounded by water.
   ruleIslandComplete(): boolean {
     let changed = false;
