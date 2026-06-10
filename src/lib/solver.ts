@@ -227,6 +227,23 @@ export class Solver {
     return changed;
   }
 
+  // Apply rules until none changes anything. Cheap rules first; the
+  // reach-based rules (which need a fresh BFS map) only run when the cheap
+  // ones have stalled, so the map is never stale.
+  // Returns false if the resulting grid is contradictory.
+  propagate(): boolean {
+    let changed = true;
+    while (changed) {
+      changed = this.ruleIslandComplete() || this.ruleSeparateIslands()
+             || this.ruleForcedExpansion() || this.ruleSeaExpansion()
+             || this.ruleSeaFill();
+      if (changed) continue;
+      const reach = this.computeReach();
+      changed = this.ruleUnreachable(reach) || this.ruleIslandFill(reach);
+    }
+    return this.contradiction() === null;
+  }
+
   // Why the current grid can no longer lead to a solution — or null if it can.
   contradiction(): string | null {
     const { rows, cols } = this.grid;

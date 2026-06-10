@@ -175,3 +175,18 @@ describe('contradiction', () => {
     expect(new Solver(g).contradiction()).toBe('too much water');
   });
 });
+
+describe('propagate', () => {
+  it('solves a pure-deduction puzzle to completion', () => {
+    const g = gridFrom('1 0\n0 0');
+    const s = new Solver(g);
+    expect(s.propagate()).toBe(true);
+    expect(g.isComplete()).toBe(true);
+    expect(validateSolution(g)[0]).toBe(true);
+  });
+
+  it('reports contradictions', () => {
+    const g = gridFrom('3 0 0 0 0', ['.#...']);
+    expect(new Solver(g).propagate()).toBe(false);
+  });
+});
