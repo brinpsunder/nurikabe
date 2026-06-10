@@ -73,6 +73,34 @@ export class Solver {
     return true;
   }
 
+  // For every cell: which island's white cells touch it —
+  // NONE, a single island id, or MULTI for two or more different islands.
+  touchingIslands(): number[] {
+    const { rows, cols } = this.grid;
+    const touch: number[] = new Array(rows * cols).fill(NONE);
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols; c++) {
+        const iid = this.grid.getIslandId(r, c);
+        if (this.grid.get(r, c) !== WHITE || iid < 0) continue;
+        for (const [nr, nc] of this.grid.neighbors(r, c)) {
+          const idx = nr * cols + nc;
+          if (touch[idx] === NONE) touch[idx] = iid;
+          else if (touch[idx] !== iid) touch[idx] = MULTI;
+        }
+      }
+    return touch;
+  }
+
+  // Rule: a white cell here would merge two islands, so it must be water.
+  ruleSeparateIslands(): boolean {
+    let changed = false;
+    const touch = this.touchingIslands();
+    for (let idx = 0; idx < touch.length; idx++)
+      if (touch[idx] === MULTI && this.grid.cells[idx] === UNKNOWN)
+        changed = this.markBlack(idx, 'Cell between two islands must be water') || changed;
+    return changed;
+  }
+
   // Rule: an island that has reached its size is surrounded by water.
   ruleIslandComplete(): boolean {
     let changed = false;

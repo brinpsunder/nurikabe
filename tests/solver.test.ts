@@ -35,3 +35,19 @@ describe('ruleIslandComplete', () => {
     expect(new Solver(g).ruleIslandComplete()).toBe(false);
   });
 });
+
+describe('ruleSeparateIslands', () => {
+  it('marks a cell touching two different islands as water', () => {
+    const g = gridFrom('2 0 2');
+    const s = new Solver(g);
+    expect(s.ruleSeparateIslands()).toBe(true);
+    expect(g.get(0, 1)).toBe(BLACK);
+  });
+
+  it('does not mark a cell touching only one island', () => {
+    const g = gridFrom('2 0 0');
+    const s = new Solver(g);
+    expect(s.ruleSeparateIslands()).toBe(false);
+    expect(g.get(0, 1)).toBe(UNKNOWN);
+  });
+});
