@@ -142,6 +142,27 @@ export class Solver {
     return changed;
   }
 
+  // Unknown cells directly adjacent to the island — its only ways to grow.
+  private islandLiberties(isl: Island): number[] {
+    const libs = new Set<number>();
+    for (const idx of isl.cells)
+      for (const n of this.neighborIdx(idx))
+        if (this.grid.cells[n] === UNKNOWN) libs.add(n);
+    return [...libs];
+  }
+
+  // Rule: an incomplete island with a single liberty must take it.
+  ruleForcedExpansion(): boolean {
+    let changed = false;
+    for (const isl of this.grid.islands) {
+      if (isl.cells.size >= isl.size) continue;
+      const libs = this.islandLiberties(isl);
+      if (libs.length === 1)
+        changed = this.markWhite(libs[0], isl.id, 'Island has only one way to grow') || changed;
+    }
+    return changed;
+  }
+
   // Rule: an island that has reached its size is surrounded by water.
   ruleIslandComplete(): boolean {
     let changed = false;

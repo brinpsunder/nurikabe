@@ -59,6 +59,21 @@ describe('ruleSeparateIslands', () => {
   });
 });
 
+describe('ruleForcedExpansion', () => {
+  it('grows an island that has exactly one liberty', () => {
+    const g = gridFrom('2 0\n0 0', ['.#', '..']);
+    const s = new Solver(g);
+    expect(s.ruleForcedExpansion()).toBe(true);
+    expect(g.get(1, 0)).toBe(WHITE);
+    expect(g.getIslandId(1, 0)).toBe(0);
+  });
+
+  it('does nothing when an island has two liberties', () => {
+    const g = gridFrom('2 0\n0 0');
+    expect(new Solver(g).ruleForcedExpansion()).toBe(false);
+  });
+});
+
 describe('computeReach / ruleUnreachable', () => {
   it('marks cells beyond every island\'s reach as water', () => {
     const g = gridFrom('2 0 0 0'); // island needs 1 more cell, reach distance 1
