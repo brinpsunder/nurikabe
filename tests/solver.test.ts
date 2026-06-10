@@ -34,6 +34,13 @@ describe('ruleIslandComplete', () => {
     const g = gridFrom('2 0\n0 0');
     expect(new Solver(g).ruleIslandComplete()).toBe(false);
   });
+
+  it('surrounds a multi-cell complete island', () => {
+    const g = gridFrom('2 0 0', ['.a.']); // island 0 = cells (0,0)+(0,1), complete
+    const s = new Solver(g);
+    expect(s.ruleIslandComplete()).toBe(true);
+    expect(g.get(0, 2)).toBe(BLACK); // neighbor of the expanded cell
+  });
 });
 
 describe('ruleSeparateIslands', () => {
@@ -66,5 +73,12 @@ describe('computeReach / ruleUnreachable', () => {
     const g = gridFrom('3 0 1'); // middle cell touches both islands
     const reach = new Solver(g).computeReach();
     expect(reach.has(1)).toBe(false);
+  });
+
+  it('marks nothing when every unknown cell is reachable', () => {
+    const g = gridFrom('2 0'); // single unknown cell, within reach
+    const s = new Solver(g);
+    expect(s.ruleUnreachable(s.computeReach())).toBe(false);
+    expect(g.get(0, 1)).toBe(UNKNOWN);
   });
 });
