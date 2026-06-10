@@ -2,7 +2,8 @@ import { Grid, Island, UNKNOWN, BLACK, WHITE, validateSolution } from './puzzle'
 
 type StepCb = (snap: Grid, rule: string) => void;
 
-// touchingIslands() markers (regular island ids are >= 0)
+// touchingIslands() markers (regular island ids are >= 0). MULTI happens to
+// equal UNKNOWN numerically; they never live in the same array (touch vs cells).
 const NONE  = -2; // cell touches no island
 const MULTI = -1; // cell touches two or more different islands
 
