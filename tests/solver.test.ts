@@ -128,3 +128,18 @@ describe('ruleSeaExpansion', () => {
     expect(new Solver(g).ruleSeaExpansion()).toBe(false);
   });
 });
+
+describe('ruleSeaFill', () => {
+  it('floods all remaining cells once every island is complete', () => {
+    const g = gridFrom('1 0\n0 1'); // both islands are size-1 clues, already complete
+    const s = new Solver(g);
+    expect(s.ruleSeaFill()).toBe(true);
+    expect(g.get(0, 1)).toBe(BLACK);
+    expect(g.get(1, 0)).toBe(BLACK);
+  });
+
+  it('does nothing while islands are incomplete', () => {
+    const g = gridFrom('2 0 0');
+    expect(new Solver(g).ruleSeaFill()).toBe(false);
+  });
+});

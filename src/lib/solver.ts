@@ -216,6 +216,17 @@ export class Solver {
     return changed;
   }
 
+  // Rule: when the number of white cells hits the clue total, every island
+  // is complete and all remaining unknowns are water.
+  ruleSeaFill(): boolean {
+    if (this.count(WHITE) !== this.whiteTarget) return false;
+    let changed = false;
+    for (let idx = 0; idx < this.grid.cells.length; idx++)
+      if (this.grid.cells[idx] === UNKNOWN)
+        changed = this.markBlack(idx, 'All islands are complete — the rest is water') || changed;
+    return changed;
+  }
+
   // Rule: an island that has reached its size is surrounded by water.
   ruleIslandComplete(): boolean {
     let changed = false;
