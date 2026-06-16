@@ -146,19 +146,29 @@
     return e;
   }
 
-  function nearestIsland(g: Grid, r: number, c: number): number {
-    const vis = new Set([`${r},${c}`]);
-    const q: [number, number][] = [[r, c]]; let qi = 0;
+  // Assign every white cell to the nearest clue reachable through white cells
+  // only (multi-source BFS seeded from each clue). Connected white regions stay
+  // self-contained, so a cell's island no longer depends on tap order/direction.
+  // A white region with no clue keeps id -1; two clues in one region produce a
+  // boundary where ids differ, which findViolations flags as a merge.
+  function recomputeIslands(g: Grid) {
+    g.islandId = new Array(g.rows * g.cols).fill(-1);
+    const q: number[] = []; let qi = 0;
+    for (const isl of g.islands) {
+      const idx = isl.origin[0] * g.cols + isl.origin[1];
+      if (g.cells[idx] === WHITE) { g.islandId[idx] = isl.id; q.push(idx); }
+    }
     while (qi < q.length) {
-      const [cr, cc] = q[qi++];
-      const iid = g.getIslandId(cr, cc);
-      if (iid >= 0) return iid;
-      for (const [nr, nc] of g.neighbors(cr, cc)) {
-        const k = `${nr},${nc}`;
-        if (!vis.has(k)) { vis.add(k); q.push([nr, nc]); }
+      const idx = q[qi++];
+      const r = Math.floor(idx / g.cols), c = idx % g.cols;
+      for (const [nr, nc] of g.neighbors(r, c)) {
+        const ni = nr * g.cols + nc;
+        if (g.cells[ni] === WHITE && g.islandId[ni] === -1) {
+          g.islandId[ni] = g.islandId[idx];
+          q.push(ni);
+        }
       }
     }
-    return 0;
   }
 
   function loadText(text: string) {
@@ -196,7 +206,7 @@
     const cur    = grid.get(r, c);
     const newVal = cur === UNKNOWN ? BLACK : cur === BLACK ? WHITE : UNKNOWN;
     grid.set(r, c, newVal);
-    grid.setIslandId(r, c, newVal === WHITE ? nearestIsland(grid, r, c) : -1);
+    recomputeIslands(grid);
     errors  = findViolations(grid);
     hintKey = null;
     redraw();
