@@ -12,9 +12,9 @@ const FILES: [string, number][] = [
   ['hard_20x20.txt',    1],
   ['primer1_18x10.txt', 1],
   ['primer2_24x14.txt', 1],
-  ['primer3_24x14.txt', 8],
+  ['primer3_24x14.txt', 10],
   ['vrazji1_24x14.txt', 4],
-  ['vrazji2_24x14.txt', 8],
+  ['vrazji2_24x14.txt', 10],
 ];
 
 describe('full puzzle suite', () => {

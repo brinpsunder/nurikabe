@@ -22,6 +22,7 @@ export class Solver {
   private gen = 0;
   private bfsQueue: Int32Array;
   private bfsDist: Int32Array;
+  private libGen: Int32Array; // per-region liberty dedup in seaRegions
   // Undo log: every markBlack/markWhite records its cell here, so search can
   // rewind cheaply instead of copying the whole grid at every branch.
   private trail: number[] = [];
@@ -34,6 +35,7 @@ export class Solver {
     this.stamp = new Int32Array(n);
     this.bfsQueue = new Int32Array(n);
     this.bfsDist = new Int32Array(n);
+    this.libGen = new Int32Array(n);
     this.nbr = Array.from({ length: n }, (_, idx) => {
       const r = Math.floor(idx / grid.cols), c = idx % grid.cols;
       return grid.neighbors(r, c).map(([nr, nc]) => nr * grid.cols + nc);
@@ -55,7 +57,7 @@ export class Solver {
   // island can only belong to that island (anything else would merge two
   // islands), so a refuted white guess means the cell is water — each failed
   // branch leaves a permanent deduction behind.
-  nodes = 0; // search states explored — shown in the report, handy for tuning
+  nodes = 0; // search states explored across this Solver's lifetime (diagnostics)
   private search(): boolean {
     this.nodes++;
     if (this.now() - this.start > this.timeout) return false;
@@ -120,6 +122,7 @@ export class Solver {
   // with the rule's explanation. The grid is left untouched.
   hint(): [[number, number], number, string] | null {
     const snap = this.grid.copy();
+    const trailMark = this.trail.length; // rules push to the trail; rewind it
     const reach = this.computeReach();
     const rules: [() => boolean, string][] = [
       [() => this.ruleIslandComplete(),   'Complete island is surrounded by water'],
@@ -139,9 +142,11 @@ export class Solver {
         if (before[idx] !== this.grid.cells[idx]) {
           const value = this.grid.cells[idx];
           this.grid.restore(snap); // restore() also restores island cell sets
+          this.trail.length = trailMark;
           return [[Math.floor(idx / this.grid.cols), idx % this.grid.cols], value, name];
         }
       this.grid.restore(snap);
+      this.trail.length = trailMark;
     }
     return null;
   }
@@ -311,8 +316,8 @@ export class Solver {
     const regions: { cells: number[]; liberties: number[] }[] = [];
     const { stamp } = this;
     const seenGen = ++this.gen;   // marks water cells already in a region
-    const libGen = new Int32Array(stamp.length); // dedup liberties per region
-    let regionNo = 0;
+    const libGen = this.libGen;   // liberty stamped with a per-region number
+    let regionNo = this.gen;      // unique per region; gen is synced at the end
     for (let start = 0; start < this.grid.cells.length; start++) {
       if (this.grid.cells[start] !== BLACK || stamp[start] === seenGen) continue;
       regionNo++;
@@ -330,6 +335,7 @@ export class Solver {
         }
       regions.push({ cells, liberties });
     }
+    this.gen = regionNo; // future generations must exceed every region number
     return regions;
   }
 
