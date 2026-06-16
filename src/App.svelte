@@ -174,7 +174,7 @@
   }
 
   async function loadSample(name: string) {
-    try { loadText(await fetch(`/puzzles/${name}`).then(r => r.text())); }
+    try { loadText(await fetch(`${import.meta.env.BASE_URL}puzzles/${name}`).then(r => r.text())); }
     catch { status = 'Could not load sample'; }
   }
 
