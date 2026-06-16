@@ -190,6 +190,9 @@
     const c = Math.floor(x / cellSize), r = Math.floor(y / cellSize);
     if (r < 0 || r >= grid.rows || c < 0 || c >= grid.cols) return;
     if (grid.clues.has(r * grid.cols + c)) return;
+    // A manual click takes over from step playback: end the VCR but keep the
+    // current position (grid already mirrors the shown step, see showStep).
+    if (steps.length) { stopVcr(); steps = []; stepIdx = 0; }
     const cur    = grid.get(r, c);
     const newVal = cur === UNKNOWN ? BLACK : cur === BLACK ? WHITE : UNKNOWN;
     grid.set(r, c, newVal);
@@ -276,6 +279,10 @@
   function showStep() {
     if (!grid || !steps.length) return;
     const s = steps[stepIdx];
+    // Keep the working grid in sync with the shown step so manual editing,
+    // Hint and Check all continue from the position currently on screen.
+    grid.cells    = [...s.cells];
+    grid.islandId = [...s.islandId];
     drawGrid(s.cells, s.islandId);
     status = `Step ${stepIdx + 1}/${steps.length}: ${s.rule}`;
   }
