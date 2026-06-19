@@ -24,6 +24,18 @@
   let errors    = $state(new Set<string>());
   let showPaste = $state(false);
   let pasteText = $state('');
+  let sampleLabel = $state('');
+
+  const SAMPLES = [
+    { file: 'easy_5x5.txt',        label: 'Easy 5×5' },
+    { file: 'medium_10x10.txt',    label: 'Medium 10×10' },
+    { file: 'hard_20x20.txt',      label: 'Hard 20×20' },
+    { file: 'primer1_18x10.txt',   label: 'Primer 1 (18×10)' },
+    { file: 'primer2_24x14.txt',   label: 'Primer 2 (24×14)' },
+    { file: 'primer3_24x14.txt',   label: 'Primer 3 (24×14)' },
+    { file: 'vrazji1_24x14.txt',   label: 'Vražji 1 (24×14)' },
+    { file: 'vrazji2_24x14.txt',   label: 'Vražji 2 (24×14)' },
+  ];
   let speed     = $state(5);
 
   type Step = { cells: number[]; islandId: number[]; rule: string };
@@ -194,6 +206,7 @@
     const f = (e.target as HTMLInputElement).files?.[0];
     if (!f) return;
     f.text().then(loadText);
+    sampleLabel = '';
     (e.target as HTMLInputElement).value = '';
   }
 
@@ -379,19 +392,19 @@
   <header>
     <span class="wordmark">Nurikabe</span>
     <div class="header-right">
-      <select onchange={(e) => {
-        const v = (e.target as HTMLSelectElement).value;
-        if (v) { loadSample(v); (e.target as HTMLSelectElement).value = ''; }
+      <select value="" onchange={(e) => {
+        const sel = e.target as HTMLSelectElement;
+        const v = sel.value;
+        if (v) {
+          loadSample(v);
+          sampleLabel = SAMPLES.find(s => s.file === v)?.label ?? '';
+        }
+        sel.value = '';
       }}>
-        <option value="">Samples</option>
-        <option value="easy_5x5.txt">Easy 5×5</option>
-        <option value="medium_10x10.txt">Medium 10×10</option>
-        <option value="hard_20x20.txt">Hard 20×20</option>
-        <option value="primer1_18x10.txt">Primer 1 (18×10)</option>
-        <option value="primer2_24x14.txt">Primer 2 (24×14)</option>
-        <option value="primer3_24x14.txt">Primer 3 (24×14)</option>
-        <option value="vrazji1_24x14.txt">Vražji 1 (24×14)</option>
-        <option value="vrazji2_24x14.txt">Vražji 2 (24×14)</option>
+        <option value="">{sampleLabel || 'Samples'}</option>
+        {#each SAMPLES as s}
+          <option value={s.file}>{s.label}</option>
+        {/each}
       </select>
       <button onclick={() => fileInput?.click()}>Load</button>
       <button onclick={() => showPaste = true}>Paste</button>
@@ -447,7 +460,7 @@
       <textarea bind:value={pasteText} placeholder="Numbers, 0 = empty&#10;&#10;2 0 0 3&#10;0 0 0 0"></textarea>
       <div class="modal-btns">
         <button onclick={() => showPaste = false}>Cancel</button>
-        <button onclick={() => { loadText(pasteText); showPaste = false; }}>Load</button>
+        <button onclick={() => { loadText(pasteText); sampleLabel = ''; showPaste = false; }}>Load</button>
       </div>
     </div>
   </div>
