@@ -56,7 +56,9 @@
     if (!grid || !canvasEl || !wrapEl) return;
     const { rows, cols, clues } = grid;
     const ctx = canvasEl.getContext('2d')!;
-    cellSize = Math.max(22, Math.min(88, Math.floor(Math.min(
+    // Floor of 12 (not 22) so a tall grid on a short phone shrinks to fit
+    // rather than overflowing the wrapper and getting clipped top/bottom.
+    cellSize = Math.max(12, Math.min(88, Math.floor(Math.min(
       (wrapEl.clientWidth  - 16) / cols,
       (wrapEl.clientHeight - 16) / rows
     ))));
