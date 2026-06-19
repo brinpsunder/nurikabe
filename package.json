@@ -7,7 +7,7 @@
     "dev": "vite --host",
     "build": "vite build",
     "preview": "vite preview --host",
-    "test": "vitest run"
+    "test": "vitest run --reporter=verbose"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^4.0.0",
